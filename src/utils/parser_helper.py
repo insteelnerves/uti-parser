@@ -4,7 +4,6 @@ import uuid
 import zlib
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-
 class ParserHelper:
     CLASS_KEYS = [
         "class_name",
@@ -173,6 +172,157 @@ class ParserHelper:
         return [item.strip() for item in text.split(",") if item.strip()]
 
     @staticmethod
+    def parse_path(path: str) -> List[Tuple[str, Any]]:
+        """
+        Parses nested path strings into token list.
+
+        Examples:
+        employees
+        employees[0].firstName
+        employees[*].firstName
+        employees.firstName
+        """
+        tokens = []
+
+        if not isinstance(path, str):
+            return tokens
+
+        path = path.strip()
+
+        if not path:
+            return tokens
+
+        pattern = re.compile(r"([^\.\[\]]+)|\[(.*?)\]")
+
+        for match in pattern.finditer(path):
+            if match.group(1) is not None:
+                key = match.group(1).strip()
+
+                if key:
+                    tokens.append(("key", key))
+            else:
+                inner = match.group(2).strip()
+
+                if inner == "*":
+                    tokens.append(("wildcard", None))
+                else:
+                    try:
+                        tokens.append(("index", int(inner)))
+                    except Exception:
+                        inner = inner.strip("'\"")
+
+                        if inner:
+                            tokens.append(("key", inner))
+
+        return tokens
+
+    @staticmethod
+    def _resolve_path(data: Any, tokens: List[Tuple[str, Any]]) -> Tuple[Any, bool]:
+        """
+        Recursively resolves parsed path tokens against JSON data.
+
+        Returns:
+            value, complete
+
+        complete is True when the full path is resolved successfully.
+        complete is False when the path or a part of it cannot be resolved.
+        """
+        if not tokens:
+            return data, True
+
+        token_type, token_value = tokens[0]
+        rest = tokens[1:]
+
+        if token_type == "key":
+            key = token_value
+
+            if isinstance(data, dict):
+                if key in data:
+                    return ParserHelper._resolve_path(data[key], rest)
+
+                return None, False
+
+            if isinstance(data, list):
+                if len(data) == 0:
+                    return [], True
+
+                values = []
+                found_any = False
+                complete = True
+
+                for item in data:
+                    value, ok = ParserHelper._resolve_path(item, tokens)
+
+                    if ok:
+                        found_any = True
+                        values.append(value)
+                    else:
+                        complete = False
+                        values.append(None)
+
+                if found_any:
+                    return values, complete
+
+                return values, False
+
+            return None, False
+
+        if token_type == "index":
+            index = token_value
+
+            if isinstance(data, list) and len(data) > 0:
+                if -len(data) <= index < len(data):
+                    return ParserHelper._resolve_path(data[index], rest)
+
+            return None, False
+
+        if token_type == "wildcard":
+            if isinstance(data, list):
+                if len(data) == 0:
+                    return [], True
+
+                values = []
+                found_any = False
+                complete = True
+
+                for item in data:
+                    value, ok = ParserHelper._resolve_path(item, rest)
+
+                    if ok:
+                        found_any = True
+                        values.append(value)
+                    else:
+                        complete = False
+                        values.append(None)
+
+                if found_any:
+                    return values, complete
+
+                return values, False
+
+            return None, False
+
+        return None, False
+
+    @staticmethod
+    def get_nested_value(data: Any, path: str) -> Tuple[Any, bool]:
+        """
+        Gets nested value from parsed JSON using path.
+
+        Examples:
+        employees
+        employees[0].firstName
+        employees[*].firstName
+        employees.firstName
+        """
+        tokens = ParserHelper.parse_path(path)
+
+        if not tokens:
+            return None, False
+
+        return ParserHelper._resolve_path(data, tokens)
+
+    @staticmethod
     def build_class_map(classes: List[str]) -> Dict[str, int]:
         return {
             str(class_name): index
@@ -305,7 +455,6 @@ class ParserHelper:
 
         for key, box in candidates:
             if isinstance(box, dict):
-                # x_min, y_min, x_max, y_max
                 values = ParserHelper._get_four_from_dict(
                     box,
                     [
@@ -319,7 +468,6 @@ class ParserHelper:
                 if values:
                     return values
 
-                # x, y, width, height
                 values = ParserHelper._get_four_from_dict(
                     box,
                     [
@@ -333,8 +481,7 @@ class ParserHelper:
                 if values:
                     x, y, w, h = values
                     return [x, y, x + w, y + h]
-
-                # cx, cy, width, height
+                    
                 values = ParserHelper._get_four_from_dict(
                     box,
                     [
@@ -359,8 +506,7 @@ class ParserHelper:
                     values = [float(v) for v in box[:4]]
                 except Exception:
                     continue
-
-                # Common Gemini format: [ymin, xmin, ymax, xmax]
+                    
                 if key == "box_2d":
                     return [values[1], values[0], values[3], values[2]]
 
