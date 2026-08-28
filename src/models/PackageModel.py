@@ -14,11 +14,6 @@ from sdks.novavision.src.base.model import (
     Config
 )
 
-
-# =====================================================
-# INPUTS
-# =====================================================
-
 class InputImage(Input):
     name: Literal["inputImage"] = "inputImage"
     value: Union[List[Image], Image]
@@ -35,7 +30,6 @@ class InputImage(Input):
     class Config:
         title = "Image"
 
-
 class InputRawText(Input):
     """
     Raw VLM/LLM text output. It can be plain JSON or Markdown-wrapped JSON.
@@ -47,11 +41,6 @@ class InputRawText(Input):
     class Config:
         title = "Raw Text"
 
-
-# =====================================================
-# OUTPUTS
-# =====================================================
-
 class OutputData(Output):
     name: Literal["outputData"] = "outputData"
     value: Union[dict, list]
@@ -59,7 +48,6 @@ class OutputData(Output):
 
     class Config:
         title = "Output Data"
-
 
 class OutputErrorStatus(Output):
     name: Literal["outputErrorStatus"] = "outputErrorStatus"
@@ -69,7 +57,6 @@ class OutputErrorStatus(Output):
     class Config:
         title = "Error Status"
 
-
 class OutputInferenceId(Output):
     name: Literal["outputInferenceId"] = "outputInferenceId"
     value: str
@@ -77,7 +64,6 @@ class OutputInferenceId(Output):
 
     class Config:
         title = "Inference ID"
-
 
 class OutputDetections(Output):
     name: Literal["outputDetections"] = "outputDetections"
@@ -87,16 +73,16 @@ class OutputDetections(Output):
     class Config:
         title = "Detections"
 
-
-# =====================================================
-# JSON PARSER CONFIGS
-# =====================================================
-
 class ConfigExpectedFields(Config):
     """
     Expected JSON fields to extract.
-    Enter field names separated by commas.
-    Example: name,age,result
+    Supports root keys and nested paths.
+
+    Examples:
+    name,age,result
+    employees[0].firstName
+    employees[*].firstName
+    employees.firstName
     """
     name: Literal["ConfigExpectedFields"] = "ConfigExpectedFields"
     value: str = Field(default="")
@@ -110,11 +96,6 @@ class ConfigExpectedFields(Config):
             "shortDescription": "Expected Fields"
         }
 
-
-# =====================================================
-# VLM AS DETECTOR CONFIG OPTIONS
-# =====================================================
-
 class OptionModelOpenAI(Config):
     name: Literal["optionOpenAI"] = "optionOpenAI"
     value: Literal["openai"] = "openai"
@@ -123,7 +104,6 @@ class OptionModelOpenAI(Config):
 
     class Config:
         title = "OpenAI"
-
 
 class OptionModelGoogleGemini(Config):
     name: Literal["optionGoogleGemini"] = "optionGoogleGemini"
@@ -134,7 +114,6 @@ class OptionModelGoogleGemini(Config):
     class Config:
         title = "Google Gemini"
 
-
 class OptionModelAnthropicClaude(Config):
     name: Literal["optionAnthropicClaude"] = "optionAnthropicClaude"
     value: Literal["anthropic-claude"] = "anthropic-claude"
@@ -143,7 +122,6 @@ class OptionModelAnthropicClaude(Config):
 
     class Config:
         title = "Anthropic Claude"
-
 
 class OptionModelSpaceXAI(Config):
     name: Literal["optionSpaceXAI"] = "optionSpaceXAI"
@@ -154,7 +132,6 @@ class OptionModelSpaceXAI(Config):
     class Config:
         title = "SpaceXAI"
 
-
 class OptionModelFlorence2(Config):
     name: Literal["optionFlorence2"] = "optionFlorence2"
     value: Literal["florence-2"] = "florence-2"
@@ -163,7 +140,6 @@ class OptionModelFlorence2(Config):
 
     class Config:
         title = "Florence-2"
-
 
 class ConfigModelType(Config):
     """
@@ -186,7 +162,6 @@ class ConfigModelType(Config):
             "shortDescription": "Model Type"
         }
 
-
 class OptionTaskObjectDetection(Config):
     name: Literal["optionObjectDetection"] = "optionObjectDetection"
     value: Literal["object-detection"] = "object-detection"
@@ -195,7 +170,6 @@ class OptionTaskObjectDetection(Config):
 
     class Config:
         title = "Object Detection"
-
 
 class OptionTaskOpenVocabularyObjectDetection(Config):
     name: Literal["optionOpenVocabularyObjectDetection"] = "optionOpenVocabularyObjectDetection"
@@ -206,7 +180,6 @@ class OptionTaskOpenVocabularyObjectDetection(Config):
     class Config:
         title = "Open Vocabulary Object Detection"
 
-
 class OptionTaskObjectDetectionAndCaption(Config):
     name: Literal["optionObjectDetectionAndCaption"] = "optionObjectDetectionAndCaption"
     value: Literal["object-detection-and-caption"] = "object-detection-and-caption"
@@ -215,7 +188,6 @@ class OptionTaskObjectDetectionAndCaption(Config):
 
     class Config:
         title = "Object Detection and Caption"
-
 
 class OptionTaskPhraseGroundedObjectDetection(Config):
     name: Literal["optionPhraseGroundedObjectDetection"] = "optionPhraseGroundedObjectDetection"
@@ -226,7 +198,6 @@ class OptionTaskPhraseGroundedObjectDetection(Config):
     class Config:
         title = "Phrase Grounded Object Detection"
 
-
 class OptionTaskRegionProposal(Config):
     name: Literal["optionRegionProposal"] = "optionRegionProposal"
     value: Literal["region-proposal"] = "region-proposal"
@@ -236,7 +207,6 @@ class OptionTaskRegionProposal(Config):
     class Config:
         title = "Region Proposal"
 
-
 class OptionTaskOcrWithTextDetection(Config):
     name: Literal["optionOcrWithTextDetection"] = "optionOcrWithTextDetection"
     value: Literal["ocr-with-text-detection"] = "ocr-with-text-detection"
@@ -245,7 +215,6 @@ class OptionTaskOcrWithTextDetection(Config):
 
     class Config:
         title = "OCR with Text Detection"
-
 
 class ConfigTaskType(Config):
     """
@@ -269,7 +238,6 @@ class ConfigTaskType(Config):
             "shortDescription": "Task Type"
         }
 
-
 class ConfigClasses(Config):
     """
     Class list used for mapping class names to class IDs.
@@ -287,24 +255,16 @@ class ConfigClasses(Config):
         json_schema_extra = {
             "shortDescription": "Classes"
         }
-
-
-# =====================================================
-# JSON PARSER EXECUTOR MODEL
-# =====================================================
-
+        
 class JsonParserInputs(Inputs):
     inputRawText: InputRawText
-
 
 class JsonParserConfigs(Configs):
     expectedFields: ConfigExpectedFields
 
-
 class JsonParserOutputs(Outputs):
     outputData: OutputData
     outputErrorStatus: OutputErrorStatus
-
 
 class JsonParserRequest(Request):
     inputs: Optional[JsonParserInputs]
@@ -315,10 +275,8 @@ class JsonParserRequest(Request):
             "target": "configs"
         }
 
-
 class JsonParserResponse(Response):
     outputs: JsonParserOutputs
-
 
 class JsonParser(Config):
     """
@@ -337,11 +295,6 @@ class JsonParser(Config):
             }
         }
 
-
-# =====================================================
-# VLM AS DETECTOR EXECUTOR MODEL
-# =====================================================
-
 class VLMAsDetectorInputs(Inputs):
     inputImage: InputImage
     inputRawText: InputRawText
@@ -352,12 +305,10 @@ class VLMAsDetectorConfigs(Configs):
     taskType: ConfigTaskType
     classes: ConfigClasses
 
-
 class VLMAsDetectorOutputs(Outputs):
     outputDetections: OutputDetections
     outputErrorStatus: OutputErrorStatus
     outputInferenceId: OutputInferenceId
-
 
 class VLMAsDetectorRequest(Request):
     inputs: Optional[VLMAsDetectorInputs]
@@ -371,7 +322,6 @@ class VLMAsDetectorRequest(Request):
 
 class VLMAsDetectorResponse(Response):
     outputs: VLMAsDetectorOutputs
-
 
 class VLMAsDetector(Config):
     """
@@ -391,11 +341,6 @@ class VLMAsDetector(Config):
             }
         }
 
-
-# =====================================================
-# VLM AS CLASSIFIER EXECUTOR MODEL
-# =====================================================
-
 class VLMAsClassifierInputs(Inputs):
     inputImage: InputImage
     inputRawText: InputRawText
@@ -404,12 +349,10 @@ class VLMAsClassifierInputs(Inputs):
 class VLMAsClassifierConfigs(Configs):
     classes: ConfigClasses
 
-
 class VLMAsClassifierOutputs(Outputs):
     outputData: OutputData
     outputErrorStatus: OutputErrorStatus
     outputInferenceId: OutputInferenceId
-
 
 class VLMAsClassifierRequest(Request):
     inputs: Optional[VLMAsClassifierInputs]
@@ -420,10 +363,8 @@ class VLMAsClassifierRequest(Request):
             "target": "configs"
         }
 
-
 class VLMAsClassifierResponse(Response):
     outputs: VLMAsClassifierOutputs
-
 
 class VLMAsClassifier(Config):
     """
@@ -442,12 +383,7 @@ class VLMAsClassifier(Config):
                 "value": 0
             }
         }
-
-
-# =====================================================
-# PACKAGE LEVEL MODEL
-# =====================================================
-
+        
 class ConfigExecutor(Config):
     """
     Select which parsing operation to perform.
@@ -463,10 +399,8 @@ class ConfigExecutor(Config):
             "shortDescription": "Select Task"
         }
 
-
 class PackageConfigs(Configs):
     executor: ConfigExecutor
-
 
 class PackageModel(Package):
     configs: PackageConfigs
