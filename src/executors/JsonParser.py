@@ -12,7 +12,6 @@ from components.Parser.src.utils.response import build_json_parser_response
 from components.Parser.src.models.PackageModel import PackageModel
 from components.Parser.src.utils.parser_helper import ParserHelper
 
-
 class JsonParser(Component):
     def __init__(self, request, bootstrap):
         super().__init__(request, bootstrap)
@@ -48,28 +47,22 @@ class JsonParser(Component):
 
             return build_json_parser_response(context=self)
 
-        if not isinstance(parsed_data, dict):
-            self.error_status = True
-            self.output_data = {
-                field: None
-                for field in expected_fields
-            }
-
-            return build_json_parser_response(context=self)
-
         output = {}
 
         for field in expected_fields:
-            if field in parsed_data:
-                output[field] = parsed_data[field]
-            else:
-                output[field] = None
+            value, complete = ParserHelper.get_nested_value(
+                data=parsed_data,
+                path=field
+            )
+
+            output[field] = value
+
+            if not complete:
                 self.error_status = True
 
         self.output_data = output
 
         return build_json_parser_response(context=self)
-
 
 if "__main__" == __name__:
     Executor(sys.argv[1]).run()
