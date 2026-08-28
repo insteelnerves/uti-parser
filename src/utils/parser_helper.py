@@ -345,17 +345,29 @@ class ParserHelper:
         """
         Gets nested value from parsed JSON using path.
 
+        If path is a simple field name and the field is not found at root level,
+        performs controlled recursive search for that field name.
+
         Examples:
         employees
         employees[0].firstName
         employees[*].firstName
         employees.firstName
+        firstName
         """
         tokens = ParserHelper.parse_path(path)
 
         if not tokens:
             return None, False
 
+        if len(tokens) == 1 and tokens[0][0] == "key":
+            key = tokens[0][1]
+
+            if isinstance(data, dict) and key in data:
+                return data[key], True
+
+            return ParserHelper.find_key(data, key)
+            
         return ParserHelper._resolve_path(data, tokens)
 
     @staticmethod
