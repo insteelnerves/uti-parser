@@ -100,28 +100,64 @@ class ParserHelper:
 
     @staticmethod
     def parse_expected_fields(raw_fields: Any) -> List[str]:
+        """
+        Parses expected fields input.
+
+        Supported formats:
+        - name,age,result
+        - employees[0].firstName,employees[1].lastName
+        - employees[*].firstName
+        - ["employees[0].firstName", "employees[1].lastName"]
+        """
         if raw_fields is None:
             return []
 
         if isinstance(raw_fields, list):
-            return [str(item).strip() for item in raw_fields if str(item).strip()]
+            return [
+                str(item).strip()
+                for item in raw_fields
+                if str(item).strip()
+            ]
 
         if isinstance(raw_fields, dict):
-            return [str(key).strip() for key in raw_fields.keys() if str(key).strip()]
+            return [
+                str(key).strip()
+                for key in raw_fields.keys()
+                if str(key).strip()
+            ]
 
         text = str(raw_fields).strip()
+
         if not text:
             return []
 
-        parsed = ParserHelper.parse_json_text(text)
+        # Only parse as JSON when the entire string is a JSON list/object.
+        if text.startswith("[") or text.startswith("{"):
+            try:
+                parsed = json.loads(text)
 
-        if isinstance(parsed, list):
-            return [str(item).strip() for item in parsed if str(item).strip()]
+                if isinstance(parsed, list):
+                    return [
+                        str(item).strip()
+                        for item in parsed
+                        if str(item).strip()
+                    ]
 
-        if isinstance(parsed, dict):
-            return [str(key).strip() for key in parsed.keys() if str(key).strip()]
+                if isinstance(parsed, dict):
+                    return [
+                        str(key).strip()
+                        for key in parsed.keys()
+                        if str(key).strip()
+                    ]
 
-        return [item.strip() for item in text.split(",") if item.strip()]
+            except Exception:
+                pass
+
+        return [
+            item.strip()
+            for item in text.split(",")
+            if item.strip()
+        ]
 
     @staticmethod
     def parse_classes(raw_classes: Any) -> List[str]:
