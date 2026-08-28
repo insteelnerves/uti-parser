@@ -359,6 +359,83 @@ class ParserHelper:
         return ParserHelper._resolve_path(data, tokens)
 
     @staticmethod
+    def find_key(
+        data: Any,
+        key: str,
+        max_depth: int = 10,
+        max_matches: int = 100,
+        max_nodes: int = 10000
+    ) -> Tuple[Any, bool]:
+        """
+        Searches key recursively inside parsed JSON data.
+
+        Stop rules:
+        - Do not descend into the value of a matched key.
+        - Stop when max_depth is exceeded.
+        - Stop when max_matches is reached.
+        - Stop when max_nodes is exceeded.
+
+        Returns:
+            value, complete
+
+        If exactly one match is found, returns the value.
+        If multiple matches are found, returns a list of values.
+        If search is truncated by limits, complete is False.
+        """
+        matches = []
+
+        state = {
+            "nodes": 0,
+            "stopped": False
+        }
+
+        def _search(current: Any, depth: int):
+            if state["stopped"]:
+                return
+
+            if depth > max_depth or state["nodes"] > max_nodes:
+                state["stopped"] = True
+                return
+
+            if len(matches) >= max_matches:
+                state["stopped"] = True
+                return
+
+            if isinstance(current, dict):
+                state["nodes"] += 1
+
+                if key in current:
+                    matches.append(current[key])
+                    return
+
+                for value in current.values():
+                    _search(value, depth + 1)
+
+                    if state["stopped"]:
+                        return
+
+            elif isinstance(current, list):
+                state["nodes"] += 1
+
+                for item in current:
+                    _search(item, depth + 1)
+
+                    if state["stopped"]:
+                        return
+
+        _search(data, 0)
+
+        if not matches:
+            return None, False
+
+        complete = not state["stopped"]
+
+        if len(matches) == 1:
+            return matches[0], complete
+
+        return matches, complete
+    
+    @staticmethod
     def build_class_map(classes: List[str]) -> Dict[str, int]:
         return {
             str(class_name): index
