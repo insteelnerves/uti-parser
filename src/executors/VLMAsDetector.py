@@ -1,6 +1,18 @@
 """
 Converts VLM/LLM text outputs containing object detection predictions into
 standardized NovaVision object detection format.
+
+Class mapping behavior:
+- If ConfigClasses is provided:
+    Known classes get their index from the config list.
+    Unknown classes get class_id -1.
+- If ConfigClasses is empty:
+    Classes are auto-detected from parsed model output.
+    Class IDs are generated deterministically.
+
+Florence-2 special behavior:
+- region-proposal forces class label to "roi".
+- If "roi" is not found in the provided class list, class_id becomes 0.
 """
 import os
 import sys
@@ -37,21 +49,6 @@ class VLMAsDetector(Component):
     def bootstrap(config: dict) -> dict:
         return {}
 
-    def _get_class_id(self, class_label: str, class_map: dict, class_list: list) -> int:
-        if class_label in class_map:
-            return class_map[class_label]
-
-        if self.model_type == "florence-2":
-            if self.task_type == "region-proposal":
-                return class_map.get("roi", 0)
-
-            if self.task_type == "open-vocabulary-object-detection":
-                return -1
-
-            return ParserHelper.generate_class_id(class_label)
-
-        return -1
-
     def run(self):
         img = Image.get_frame(
             img=self.input_image,
@@ -78,6 +75,7 @@ class VLMAsDetector(Component):
 
         class_list = ParserHelper.parse_classes(self.classes_raw)
         class_map = ParserHelper.build_class_map(class_list)
+        normalized_class_map = ParserHelper.build_normalized_class_map(class_list)
 
         detections = []
 
@@ -86,6 +84,7 @@ class VLMAsDetector(Component):
                 continue
 
             box = ParserHelper.extract_box(item)
+
             normalized_box = ParserHelper.normalize_box(
                 box=box,
                 width=width,
@@ -114,11 +113,24 @@ class VLMAsDetector(Component):
                 default=default_confidence
             )
 
-            class_id = self._get_class_id(
-                class_label=class_label,
+            auto_when_empty = True
+
+            if self.model_type == "florence-2" and self.task_type in [
+                "region-proposal",
+                "open-vocabulary-object-detection"
+            ]:
+                auto_when_empty = False
+
+            resolved_class_label, class_id = ParserHelper.resolve_class_id(
+                class_name=class_label,
+                class_list=class_list,
                 class_map=class_map,
-                class_list=class_list
+                normalized_class_map=normalized_class_map,
+                auto_when_empty=auto_when_empty
             )
+
+            if self.model_type == "florence-2" and self.task_type == "region-proposal" and class_id == -1:
+                class_id = 0
 
             left, top, box_width, box_height = normalized_box
 
@@ -130,7 +142,7 @@ class VLMAsDetector(Component):
                     height=float(box_height)
                 ),
                 confidence=float(confidence),
-                classLabel=str(class_label),
+                classLabel=str(resolved_class_label or class_label),
                 classId=int(class_id)
             )
 
