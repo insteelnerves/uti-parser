@@ -14,7 +14,6 @@ from sdks.novavision.src.base.model import (
     Config
 )
 
-
 class InputImage(Input):
     name: Literal["inputImage"] = "inputImage"
     value: Union[List[Image], Image]
@@ -103,6 +102,41 @@ class ConfigExpectedFields(Config):
             "shortDescription": "Expected Fields"
         }
 
+class OptionModelAuto(Config):
+    name: Literal["optionAuto"] = "optionAuto"
+    value: Literal["auto"] = "auto"
+    type: Literal["string"] = "string"
+    field: Literal["option"] = "option"
+
+    class Config:
+        title = "Auto"
+
+class OptionModelGCPVision(Config):
+    name: Literal["optionGCPVision"] = "optionGCPVision"
+    value: Literal["gcp-vision"] = "gcp-vision"
+    type: Literal["string"] = "string"
+    field: Literal["option"] = "option"
+
+    class Config:
+        title = "GCP Vision"
+
+class OptionModelQwenAI(Config):
+    name: Literal["optionQwenAI"] = "optionQwenAI"
+    value: Literal["qwen-ai"] = "qwen-ai"
+    type: Literal["string"] = "string"
+    field: Literal["option"] = "option"
+
+    class Config:
+        title = "Qwen AI"
+
+class OptionModelKimiAI(Config):
+    name: Literal["optionKimiAI"] = "optionKimiAI"
+    value: Literal["kimi-ai"] = "kimi-ai"
+    type: Literal["string"] = "string"
+    field: Literal["option"] = "option"
+
+    class Config:
+        title = "Kimi AI"
 
 class OptionModelOpenAI(Config):
     name: Literal["optionOpenAI"] = "optionOpenAI"
@@ -113,7 +147,6 @@ class OptionModelOpenAI(Config):
     class Config:
         title = "OpenAI"
 
-
 class OptionModelGoogleGemini(Config):
     name: Literal["optionGoogleGemini"] = "optionGoogleGemini"
     value: Literal["google-gemini"] = "google-gemini"
@@ -122,7 +155,6 @@ class OptionModelGoogleGemini(Config):
 
     class Config:
         title = "Google Gemini"
-
 
 class OptionModelAnthropicClaude(Config):
     name: Literal["optionAnthropicClaude"] = "optionAnthropicClaude"
@@ -153,19 +185,96 @@ class OptionModelFlorence2(Config):
     class Config:
         title = "Florence-2"
 
+class OptionCoordinateAuto(Config):
+    name: Literal["optionCoordinateAuto"] = "optionCoordinateAuto"
+    value: Literal["auto"] = "auto"
+    type: Literal["string"] = "string"
+    field: Literal["option"] = "option"
+
+    class Config:
+        title = "Auto"
+
+
+class OptionCoordinateNormalized01(Config):
+    name: Literal["optionCoordinateNormalized01"] = "optionCoordinateNormalized01"
+    value: Literal["normalized-0-1"] = "normalized-0-1"
+    type: Literal["string"] = "string"
+    field: Literal["option"] = "option"
+
+    class Config:
+        title = "Normalized 0-1"
+
+
+class OptionCoordinateNormalized01000(Config):
+    name: Literal["optionCoordinateNormalized01000"] = "optionCoordinateNormalized01000"
+    value: Literal["normalized-0-1000"] = "normalized-0-1000"
+    type: Literal["string"] = "string"
+    field: Literal["option"] = "option"
+
+    class Config:
+        title = "Normalized 0-1000"
+
+
+class OptionCoordinatePixel(Config):
+    name: Literal["optionCoordinatePixel"] = "optionCoordinatePixel"
+    value: Literal["pixel"] = "pixel"
+    type: Literal["string"] = "string"
+    field: Literal["option"] = "option"
+
+    class Config:
+        title = "Pixel"
+
+class ConfigCoordinateFormat(Config):
+    """
+    Select the coordinate format used in the detection output.
+
+    Auto:
+    - 0-1 normalized coordinates are scaled to image size.
+    - 0-1000 normalized coordinates are scaled to image size.
+    - Pixel coordinates are kept as-is.
+
+    Normalized 0-1:
+    - Coordinates are expected in [0, 1] range.
+
+    Normalized 0-1000:
+    - Coordinates are expected in [0, 1000] range.
+
+    Pixel:
+    - Coordinates are expected as absolute pixel values.
+    """
+    name: Literal["ConfigCoordinateFormat"] = "ConfigCoordinateFormat"
+    value: Union[
+        OptionCoordinateAuto,
+        OptionCoordinateNormalized01,
+        OptionCoordinateNormalized01000,
+        OptionCoordinatePixel
+    ] = Field(default_factory=OptionCoordinateAuto)
+    type: Literal["object"] = "object"
+    field: Literal["dropdownlist"] = "dropdownlist"
+
+    class Config:
+        title = "Coordinate Format"
+        json_schema_extra = {
+            "shortDescription": "Coordinate Format"
+        }
 
 class ConfigModelType(Config):
     """
     Select the VLM/LLM model type producing the detection JSON.
+    Auto mode uses a generic and safe parsing behavior.
     """
     name: Literal["ConfigModelType"] = "ConfigModelType"
     value: Union[
+        OptionModelAuto,
         OptionModelOpenAI,
         OptionModelGoogleGemini,
         OptionModelAnthropicClaude,
         OptionModelSpaceXAI,
-        OptionModelFlorence2
-    ]
+        OptionModelFlorence2,
+        OptionModelGCPVision,
+        OptionModelQwenAI,
+        OptionModelKimiAI
+    ] = Field(default_factory=OptionModelAuto)
     type: Literal["object"] = "object"
     field: Literal["dropdownlist"] = "dropdownlist"
 
@@ -175,6 +284,30 @@ class ConfigModelType(Config):
             "shortDescription": "Model Type"
         }
 
+class ConfigClassifierModelType(Config):
+    """
+    Select the VLM/LLM model type producing the classification output.
+    Auto mode uses a generic and safe parsing behavior.
+    """
+    name: Literal["ConfigClassifierModelType"] = "ConfigClassifierModelType"
+    value: Union[
+        OptionModelAuto,
+        OptionModelOpenAI,
+        OptionModelGoogleGemini,
+        OptionModelAnthropicClaude,
+        OptionModelSpaceXAI,
+        OptionModelGCPVision,
+        OptionModelQwenAI,
+        OptionModelKimiAI
+    ] = Field(default_factory=OptionModelAuto)
+    type: Literal["object"] = "object"
+    field: Literal["dropdownlist"] = "dropdownlist"
+
+    class Config:
+        title = "Model Type"
+        json_schema_extra = {
+            "shortDescription": "Model Type"
+        }
 
 class OptionTaskObjectDetection(Config):
     name: Literal["optionObjectDetection"] = "optionObjectDetection"
@@ -194,7 +327,6 @@ class OptionTaskOpenVocabularyObjectDetection(Config):
 
     class Config:
         title = "Open Vocabulary Object Detection"
-
 
 class OptionTaskObjectDetectionAndCaption(Config):
     name: Literal["optionObjectDetectionAndCaption"] = "optionObjectDetectionAndCaption"
@@ -248,7 +380,7 @@ class ConfigTaskType(Config):
         OptionTaskPhraseGroundedObjectDetection,
         OptionTaskRegionProposal,
         OptionTaskOcrWithTextDetection
-    ]
+    ] = Field(default_factory=OptionTaskObjectDetection)
     type: Literal["object"] = "object"
     field: Literal["dropdownlist"] = "dropdownlist"
 
@@ -334,9 +466,10 @@ class VLMAsDetectorInputs(Inputs):
 
 
 class VLMAsDetectorConfigs(Configs):
-    modelType: ConfigModelType
-    taskType: ConfigTaskType
-    classes: ConfigClasses
+    modelType: ConfigModelType = Field(default_factory=ConfigModelType)
+    taskType: ConfigTaskType = Field(default_factory=ConfigTaskType)
+    coordinateFormat: ConfigCoordinateFormat = Field(default_factory=ConfigCoordinateFormat)
+    classes: ConfigClasses = Field(default_factory=ConfigClasses)
 
 
 class VLMAsDetectorOutputs(Outputs):
@@ -384,7 +517,8 @@ class VLMAsClassifierInputs(Inputs):
 
 
 class VLMAsClassifierConfigs(Configs):
-    classes: ConfigClasses
+    modelType: ConfigClassifierModelType = Field(default_factory=ConfigClassifierModelType)
+    classes: ConfigClasses = Field(default_factory=ConfigClasses)
 
 
 class VLMAsClassifierOutputs(Outputs):
