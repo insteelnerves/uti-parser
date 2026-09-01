@@ -14,6 +14,7 @@ from sdks.novavision.src.base.model import (
     Config
 )
 
+
 class InputImage(Input):
     name: Literal["inputImage"] = "inputImage"
     value: Union[List[Image], Image]
@@ -30,6 +31,7 @@ class InputImage(Input):
     class Config:
         title = "Image"
 
+
 class InputRawText(Input):
     """
     Raw VLM/LLM text output. It can be plain JSON or Markdown-wrapped JSON.
@@ -41,6 +43,7 @@ class InputRawText(Input):
     class Config:
         title = "Raw Text"
 
+
 class OutputData(Output):
     name: Literal["outputData"] = "outputData"
     value: Union[dict, list]
@@ -48,6 +51,7 @@ class OutputData(Output):
 
     class Config:
         title = "Output Data"
+
 
 class OutputErrorStatus(Output):
     name: Literal["outputErrorStatus"] = "outputErrorStatus"
@@ -57,6 +61,7 @@ class OutputErrorStatus(Output):
     class Config:
         title = "Error Status"
 
+
 class OutputInferenceId(Output):
     name: Literal["outputInferenceId"] = "outputInferenceId"
     value: str
@@ -65,6 +70,7 @@ class OutputInferenceId(Output):
     class Config:
         title = "Inference ID"
 
+
 class OutputDetections(Output):
     name: Literal["outputDetections"] = "outputDetections"
     value: List[Detection]
@@ -72,6 +78,7 @@ class OutputDetections(Output):
 
     class Config:
         title = "Detections"
+
 
 class ConfigExpectedFields(Config):
     """
@@ -96,6 +103,7 @@ class ConfigExpectedFields(Config):
             "shortDescription": "Expected Fields"
         }
 
+
 class OptionModelOpenAI(Config):
     name: Literal["optionOpenAI"] = "optionOpenAI"
     value: Literal["openai"] = "openai"
@@ -104,6 +112,7 @@ class OptionModelOpenAI(Config):
 
     class Config:
         title = "OpenAI"
+
 
 class OptionModelGoogleGemini(Config):
     name: Literal["optionGoogleGemini"] = "optionGoogleGemini"
@@ -114,6 +123,7 @@ class OptionModelGoogleGemini(Config):
     class Config:
         title = "Google Gemini"
 
+
 class OptionModelAnthropicClaude(Config):
     name: Literal["optionAnthropicClaude"] = "optionAnthropicClaude"
     value: Literal["anthropic-claude"] = "anthropic-claude"
@@ -122,6 +132,7 @@ class OptionModelAnthropicClaude(Config):
 
     class Config:
         title = "Anthropic Claude"
+
 
 class OptionModelSpaceXAI(Config):
     name: Literal["optionSpaceXAI"] = "optionSpaceXAI"
@@ -132,6 +143,7 @@ class OptionModelSpaceXAI(Config):
     class Config:
         title = "SpaceXAI"
 
+
 class OptionModelFlorence2(Config):
     name: Literal["optionFlorence2"] = "optionFlorence2"
     value: Literal["florence-2"] = "florence-2"
@@ -140,6 +152,7 @@ class OptionModelFlorence2(Config):
 
     class Config:
         title = "Florence-2"
+
 
 class ConfigModelType(Config):
     """
@@ -162,6 +175,7 @@ class ConfigModelType(Config):
             "shortDescription": "Model Type"
         }
 
+
 class OptionTaskObjectDetection(Config):
     name: Literal["optionObjectDetection"] = "optionObjectDetection"
     value: Literal["object-detection"] = "object-detection"
@@ -170,6 +184,7 @@ class OptionTaskObjectDetection(Config):
 
     class Config:
         title = "Object Detection"
+
 
 class OptionTaskOpenVocabularyObjectDetection(Config):
     name: Literal["optionOpenVocabularyObjectDetection"] = "optionOpenVocabularyObjectDetection"
@@ -180,6 +195,7 @@ class OptionTaskOpenVocabularyObjectDetection(Config):
     class Config:
         title = "Open Vocabulary Object Detection"
 
+
 class OptionTaskObjectDetectionAndCaption(Config):
     name: Literal["optionObjectDetectionAndCaption"] = "optionObjectDetectionAndCaption"
     value: Literal["object-detection-and-caption"] = "object-detection-and-caption"
@@ -188,6 +204,7 @@ class OptionTaskObjectDetectionAndCaption(Config):
 
     class Config:
         title = "Object Detection and Caption"
+
 
 class OptionTaskPhraseGroundedObjectDetection(Config):
     name: Literal["optionPhraseGroundedObjectDetection"] = "optionPhraseGroundedObjectDetection"
@@ -198,6 +215,7 @@ class OptionTaskPhraseGroundedObjectDetection(Config):
     class Config:
         title = "Phrase Grounded Object Detection"
 
+
 class OptionTaskRegionProposal(Config):
     name: Literal["optionRegionProposal"] = "optionRegionProposal"
     value: Literal["region-proposal"] = "region-proposal"
@@ -207,6 +225,7 @@ class OptionTaskRegionProposal(Config):
     class Config:
         title = "Region Proposal"
 
+
 class OptionTaskOcrWithTextDetection(Config):
     name: Literal["optionOcrWithTextDetection"] = "optionOcrWithTextDetection"
     value: Literal["ocr-with-text-detection"] = "ocr-with-text-detection"
@@ -215,6 +234,7 @@ class OptionTaskOcrWithTextDetection(Config):
 
     class Config:
         title = "OCR with Text Detection"
+
 
 class ConfigTaskType(Config):
     """
@@ -238,33 +258,43 @@ class ConfigTaskType(Config):
             "shortDescription": "Task Type"
         }
 
+
 class ConfigClasses(Config):
     """
-    Class list used for mapping class names to class IDs.
-    Enter class names separated by commas.
+    Optional class list used for mapping class names to class IDs.
+
+    If provided, known classes are mapped to their index in this list.
+    Unknown classes receive class_id -1.
+
+    If left empty, classes are auto-detected from the parsed model output.
+
     Example: person,car,dog
     """
     name: Literal["ConfigClasses"] = "ConfigClasses"
     value: str = Field(default="")
     type: Literal["string"] = "string"
     field: Literal["textInput"] = "textInput"
-    placeHolder: Literal["person,car,dog"] = "person,car,dog"
+    placeHolder: Literal["Optional: person,car,dog"] = "Optional: person,car,dog"
 
     class Config:
-        title = "Classes"
+        title = "Classes (Optional)"
         json_schema_extra = {
-            "shortDescription": "Classes"
+            "shortDescription": "Known Classes (Optional)"
         }
-        
+
+
 class JsonParserInputs(Inputs):
     inputRawText: InputRawText
+
 
 class JsonParserConfigs(Configs):
     expectedFields: ConfigExpectedFields
 
+
 class JsonParserOutputs(Outputs):
     outputData: OutputData
     outputErrorStatus: OutputErrorStatus
+
 
 class JsonParserRequest(Request):
     inputs: Optional[JsonParserInputs]
@@ -275,8 +305,10 @@ class JsonParserRequest(Request):
             "target": "configs"
         }
 
+
 class JsonParserResponse(Response):
     outputs: JsonParserOutputs
+
 
 class JsonParser(Config):
     """
@@ -295,6 +327,7 @@ class JsonParser(Config):
             }
         }
 
+
 class VLMAsDetectorInputs(Inputs):
     inputImage: InputImage
     inputRawText: InputRawText
@@ -305,10 +338,12 @@ class VLMAsDetectorConfigs(Configs):
     taskType: ConfigTaskType
     classes: ConfigClasses
 
+
 class VLMAsDetectorOutputs(Outputs):
     outputDetections: OutputDetections
     outputErrorStatus: OutputErrorStatus
     outputInferenceId: OutputInferenceId
+
 
 class VLMAsDetectorRequest(Request):
     inputs: Optional[VLMAsDetectorInputs]
@@ -322,6 +357,7 @@ class VLMAsDetectorRequest(Request):
 
 class VLMAsDetectorResponse(Response):
     outputs: VLMAsDetectorOutputs
+
 
 class VLMAsDetector(Config):
     """
@@ -341,6 +377,7 @@ class VLMAsDetector(Config):
             }
         }
 
+
 class VLMAsClassifierInputs(Inputs):
     inputImage: InputImage
     inputRawText: InputRawText
@@ -349,10 +386,12 @@ class VLMAsClassifierInputs(Inputs):
 class VLMAsClassifierConfigs(Configs):
     classes: ConfigClasses
 
+
 class VLMAsClassifierOutputs(Outputs):
     outputData: OutputData
     outputErrorStatus: OutputErrorStatus
     outputInferenceId: OutputInferenceId
+
 
 class VLMAsClassifierRequest(Request):
     inputs: Optional[VLMAsClassifierInputs]
@@ -363,8 +402,10 @@ class VLMAsClassifierRequest(Request):
             "target": "configs"
         }
 
+
 class VLMAsClassifierResponse(Response):
     outputs: VLMAsClassifierOutputs
+
 
 class VLMAsClassifier(Config):
     """
@@ -383,7 +424,8 @@ class VLMAsClassifier(Config):
                 "value": 0
             }
         }
-        
+
+
 class ConfigExecutor(Config):
     """
     Select which parsing operation to perform.
@@ -399,8 +441,10 @@ class ConfigExecutor(Config):
             "shortDescription": "Select Task"
         }
 
+
 class PackageConfigs(Configs):
     executor: ConfigExecutor
+
 
 class PackageModel(Package):
     configs: PackageConfigs
