@@ -1,6 +1,14 @@
 """
 Converts VLM/LLM text outputs containing classification predictions into
 standardized NovaVision classification prediction format.
+
+Class mapping behavior:
+- If ConfigClasses is provided:
+    Known classes get their index from the config list.
+    Unknown classes get class_id -1.
+- If ConfigClasses is empty:
+    Classes are auto-detected from parsed model output.
+    Class IDs are generated deterministically.
 """
 import os
 import sys
@@ -61,16 +69,31 @@ class VLMAsClassifier(Component):
 
         class_list = ParserHelper.parse_classes(self.classes_raw)
         class_map = ParserHelper.build_class_map(class_list)
+        normalized_class_map = ParserHelper.build_normalized_class_map(class_list)
 
         predictions = []
 
         for item in classification_items:
             class_name = str(item.get("class_name", ""))
+
+            if not class_name:
+                continue
+
             confidence = ParserHelper.clamp(item.get("confidence", 0.0))
-            class_id = class_map.get(class_name, -1)
+
+            resolved_class_name, class_id = ParserHelper.resolve_class_id(
+                class_name=class_name,
+                class_list=class_list,
+                class_map=class_map,
+                normalized_class_map=normalized_class_map,
+                auto_when_empty=True
+            )
+
+            if not resolved_class_name:
+                continue
 
             predictions.append({
-                "class_name": class_name,
+                "class_name": resolved_class_name,
                 "class_id": int(class_id),
                 "confidence": float(confidence)
             })
