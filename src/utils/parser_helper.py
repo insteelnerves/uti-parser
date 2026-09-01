@@ -2,7 +2,9 @@ import json
 import re
 import uuid
 import zlib
+
 from typing import Any, Dict, List, Optional, Tuple, Union
+
 
 class ParserHelper:
     CLASS_KEYS = [
@@ -56,12 +58,24 @@ class ParserHelper:
     def parse_json_text(raw_text: Any) -> Optional[Union[dict, list]]:
         """
         Parses raw JSON text or Markdown-wrapped JSON text.
+
+        Parse order:
+        1. Return directly if data is already dict/list.
+        2. Try strict JSON parse.
+        3. Try raw JSON decode from first { or [ character.
+        4. Try relaxed JSON repair for LLM outputs.
+        5. Try strict parse and raw decode again on repaired text.
+
         If multiple Markdown JSON blocks exist, only the first one is used.
         """
         if raw_text is None:
             return None
 
+        if isinstance(raw_text, (dict, list)):
+            return raw_text
+
         text = str(raw_text).strip()
+
         if not text:
             return None
 
@@ -78,25 +92,147 @@ class ParserHelper:
 
         candidates.append(text)
 
-        decoder = json.JSONDecoder()
-
         for candidate in candidates:
-            try:
-                return json.loads(candidate)
-            except Exception:
-                pass
+            parsed = ParserHelper._loads(candidate)
 
-            for start_char in ["{", "["]:
-                start = candidate.find(start_char)
+            if parsed is not None:
+                return parsed
 
-                while start != -1:
-                    try:
-                        obj, _ = decoder.raw_decode(candidate[start:])
-                        return obj
-                    except Exception:
-                        start = candidate.find(start_char, start + 1)
+            parsed = ParserHelper._raw_decode(candidate)
+
+            if parsed is not None:
+                return parsed
+
+            repaired = ParserHelper._repair_json_like_text(candidate)
+
+            parsed = ParserHelper._loads(repaired)
+
+            if parsed is not None:
+                return parsed
+
+            parsed = ParserHelper._raw_decode(repaired)
+
+            if parsed is not None:
+                return parsed
 
         return None
+
+    @staticmethod
+    def _loads(text: str) -> Any:
+        try:
+            return json.loads(text)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _raw_decode(text: str) -> Any:
+        decoder = json.JSONDecoder()
+
+        for start_char in ["{", "["]:
+            start = text.find(start_char)
+
+            while start != -1:
+                try:
+                    obj, _ = decoder.raw_decode(text[start:])
+                    return obj
+                except Exception:
+                    start = text.find(start_char, start + 1)
+
+        return None
+
+    @staticmethod
+    def _repair_json_like_text(text: str) -> str:
+        """
+        Repairs common LLM/VLM pseudo-JSON outputs.
+
+        Supports:
+        - unquoted keys
+        - unquoted string values
+        - trailing commas
+        - simple object/array structures
+
+        Example:
+            {
+              predicted_classes: [
+                {
+                  class: person,
+                  confidence: 0.99
+                }
+              ]
+            }
+
+        becomes:
+
+            {
+              "predicted_classes": [
+                {
+                  "class": "person",
+                  "confidence": 0.99
+                }
+              ]
+            }
+        """
+        text = text.strip()
+
+        if not text:
+            return text
+
+        # Remove trailing commas.
+        text = re.sub(
+            r",\s*([}\]])",
+            r"\1",
+            text
+        )
+
+        # Quote unquoted object keys.
+        text = re.sub(
+            r'([{,]\s*)([\w$\-\.]+)\s*:',
+            r'\1"\2":',
+            text
+        )
+
+        # Quote unquoted keys at line start.
+        text = re.sub(
+            r'^\s*([\w$\-\.]+)\s*:',
+            r'"\1":',
+            text,
+            flags=re.MULTILINE
+        )
+
+        def is_raw_literal(value: str) -> bool:
+            value = value.strip()
+
+            if not value:
+                return False
+
+            if value.lower() in {"true", "false", "null"}:
+                return True
+
+            if re.fullmatch(
+                r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?",
+                value
+            ):
+                return True
+
+            return False
+
+        def quote_value(match):
+            prefix = match.group(1)
+            value = match.group(2).strip()
+
+            if is_raw_literal(value):
+                return prefix + value
+
+            return prefix + json.dumps(value, ensure_ascii=False)
+
+        # Quote unquoted string values after colon.
+        text = re.sub(
+            r'(:\s*)([^\s"\'{\[\],:][^,\]\}\n]*?)\s*(?=[,\]\}\n]|$)',
+            quote_value,
+            text
+        )
+
+        return text
 
     @staticmethod
     def parse_expected_fields(raw_fields: Any) -> List[str]:
@@ -181,9 +317,14 @@ class ParserHelper:
             return classes
 
         if isinstance(raw_classes, dict):
-            return [str(key).strip() for key in raw_classes.keys() if str(key).strip()]
+            return [
+                str(key).strip()
+                for key in raw_classes.keys()
+                if str(key).strip()
+            ]
 
         text = str(raw_classes).strip()
+
         if not text:
             return []
 
@@ -203,9 +344,17 @@ class ParserHelper:
             return classes
 
         if isinstance(parsed, dict):
-            return [str(key).strip() for key in parsed.keys() if str(key).strip()]
+            return [
+                str(key).strip()
+                for key in parsed.keys()
+                if str(key).strip()
+            ]
 
-        return [item.strip() for item in text.split(",") if item.strip()]
+        return [
+            item.strip()
+            for item in text.split(",")
+            if item.strip()
+        ]
 
     @staticmethod
     def parse_path(path: str) -> List[Tuple[str, Any]]:
@@ -258,7 +407,7 @@ class ParserHelper:
         Recursively resolves parsed path tokens against JSON data.
 
         Returns:
-            value, complete
+        value, complete
 
         complete is True when the full path is resolved successfully.
         complete is False when the path or a part of it cannot be resolved.
@@ -367,7 +516,7 @@ class ParserHelper:
                 return data[key], True
 
             return ParserHelper.find_key(data, key)
-            
+
         return ParserHelper._resolve_path(data, tokens)
 
     @staticmethod
@@ -388,7 +537,7 @@ class ParserHelper:
         - Stop when max_nodes is exceeded.
 
         Returns:
-            value, complete
+        value, complete
 
         If exactly one match is found, returns the value.
         If multiple matches are found, returns a list of values.
@@ -446,13 +595,89 @@ class ParserHelper:
             return matches[0], complete
 
         return matches, complete
-    
+
     @staticmethod
     def build_class_map(classes: List[str]) -> Dict[str, int]:
         return {
             str(class_name): index
-            for index, class_name in enumerate(classes)
+            for index, class_name in enumerate(classes or [])
         }
+
+    @staticmethod
+    def build_normalized_class_map(classes: List[str]) -> Dict[str, int]:
+        normalized_map = {}
+
+        for index, class_name in enumerate(classes or []):
+            normalized_name = ParserHelper.normalize_class_name(class_name)
+
+            if normalized_name and normalized_name not in normalized_map:
+                normalized_map[normalized_name] = index
+
+        return normalized_map
+
+    @staticmethod
+    def normalize_class_name(class_name: Any) -> str:
+        if class_name is None:
+            return ""
+
+        name = str(class_name).strip().lower()
+
+        name = re.sub(
+            r"[_\-]+",
+            " ",
+            name
+        )
+
+        name = re.sub(
+            r"\s+",
+            " ",
+            name
+        )
+
+        return name
+
+    @staticmethod
+    def resolve_class_id(
+        class_name: Any,
+        class_list: List[str],
+        class_map: Dict[str, int],
+        normalized_class_map: Dict[str, int],
+        auto_when_empty: bool = True
+    ) -> Tuple[str, int]:
+        """
+        Resolves class name to class ID.
+
+        Behavior:
+        - If class_list is empty and auto_when_empty is True:
+            return deterministic generated class ID.
+        - If class_list is empty and auto_when_empty is False:
+            return -1.
+        - If class_list is not empty:
+            first try exact match, then normalized match.
+            If no match found, return -1.
+        """
+        original_name = str(class_name or "").strip()
+
+        if not original_name:
+            return "", -1
+
+        if not class_list:
+            if auto_when_empty:
+                return original_name, ParserHelper.generate_class_id(original_name)
+
+            return original_name, -1
+
+        if original_name in class_map:
+            index = class_map[original_name]
+            return str(class_list[index]), int(index)
+
+        normalized_name = ParserHelper.normalize_class_name(original_name)
+
+        if normalized_name in normalized_class_map:
+            index = normalized_class_map[normalized_name]
+            return str(class_list[index]), int(index)
+
+        return original_name, -1
 
     @staticmethod
     def clamp(value: Any, min_value: float = 0.0, max_value: float = 1.0) -> float:
@@ -492,9 +717,14 @@ class ParserHelper:
         for key in ParserHelper.CONFIDENCE_KEYS:
             if key in item and item[key] is not None:
                 try:
-                    return ParserHelper.clamp(float(item[key]))
+                    value = float(item[key])
                 except Exception:
-                    pass
+                    continue
+
+                if value > 1.0 and value <= 100.0:
+                    value = value / 100.0
+
+                return ParserHelper.clamp(value)
 
         return ParserHelper.clamp(default)
 
@@ -606,7 +836,7 @@ class ParserHelper:
                 if values:
                     x, y, w, h = values
                     return [x, y, x + w, y + h]
-                    
+
                 values = ParserHelper._get_four_from_dict(
                     box,
                     [
@@ -631,7 +861,7 @@ class ParserHelper:
                     values = [float(v) for v in box[:4]]
                 except Exception:
                     continue
-                    
+
                 if key == "box_2d":
                     return [values[1], values[0], values[3], values[2]]
 
