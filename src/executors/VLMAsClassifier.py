@@ -31,6 +31,7 @@ class VLMAsClassifier(Component):
 
         self.input_image = self.request.get_param("inputImage")
         self.raw_text = self.request.get_param("inputRawText")
+        self.model_type = self.request.get_param("ConfigClassifierModelType") or "auto"
         self.classes_raw = self.request.get_param("ConfigClasses")
 
         self.error_status = False
