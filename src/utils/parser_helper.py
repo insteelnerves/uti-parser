@@ -16,6 +16,10 @@ class ParserHelper:
         "object_name",
         "name",
         "category",
+        "category_name",
+        "description",
+        "tag",
+        "entity",
         "text"
     ]
 
@@ -24,7 +28,11 @@ class ParserHelper:
         "score",
         "prob",
         "probability",
-        "conf"
+        "conf",
+        "topicality",
+        "likelihood",
+        "scores",
+        "probabilities"
     ]
 
     DETECTION_LIST_KEYS = [
@@ -35,7 +43,13 @@ class ParserHelper:
         "results",
         "items",
         "data",
-        "labels"
+        "labels",
+        "localizedObjectAnnotations",
+        "labelAnnotations",
+        "faceAnnotations",
+        "textAnnotations",
+        "annotations",
+        "responses"
     ]
 
     BOX_KEYS = [
@@ -47,7 +61,11 @@ class ParserHelper:
         "coordinates",
         "coords",
         "rect",
-        "region"
+        "region",
+        "boundingPoly",
+        "normalizedVertices",
+        "vertices",
+        "location"
     ]
 
     @staticmethod
@@ -767,6 +785,9 @@ class ParserHelper:
             return parsed_data
 
         if isinstance(parsed_data, dict):
+            if isinstance(parsed_data.get("responses"), list) and parsed_data["responses"]:
+                return ParserHelper.extract_detection_items(parsed_data["responses"][0])
+
             for key in ParserHelper.DETECTION_LIST_KEYS:
                 value = parsed_data.get(key)
 
@@ -792,9 +813,49 @@ class ParserHelper:
         return None
 
     @staticmethod
-    def extract_box(item: Any) -> Optional[List[float]]:
+    def _extract_vertices_box(vertices: Any) -> Optional[List[float]]:
         """
-        Extracts box as [x_min, y_min, x_max, y_max].
+        Extracts box from vertices or normalizedVertices structure.
+
+        Returns:
+        [x_min, y_min, x_max, y_max]
+        """
+        if not isinstance(vertices, list) or len(vertices) < 2:
+            return None
+
+        xs = []
+        ys = []
+
+        for point in vertices:
+            if not isinstance(point, dict):
+                continue
+
+            x = point.get("x")
+            y = point.get("y")
+
+            if x is None or y is None:
+                continue
+
+            try:
+                xs.append(float(x))
+                ys.append(float(y))
+            except Exception:
+                continue
+
+        if not xs or not ys:
+            return None
+
+        return [
+            min(xs),
+            min(ys),
+            max(xs),
+            max(ys)
+        ]
+    
+    @staticmethod
+    def extract_box_with_source(item: Any) -> Optional[Tuple[List[float], str]]:
+        """
+        Extracts box as [x_min, y_min, x_max, y_max] and returns source key.
         """
         if not isinstance(item, dict):
             return None
@@ -810,6 +871,27 @@ class ParserHelper:
 
         for key, box in candidates:
             if isinstance(box, dict):
+                # Direct vertices support.
+                for vertices_key in ["normalizedVertices", "vertices"]:
+                    if vertices_key in box:
+                        vertices_box = ParserHelper._extract_vertices_box(box[vertices_key])
+
+                        if vertices_box:
+                            return vertices_box, f"{key}.{vertices_key}"
+
+                # Nested boundingPoly support.
+                if "boundingPoly" in box and isinstance(box["boundingPoly"], dict):
+                    bounding_poly = box["boundingPoly"]
+
+                    for vertices_key in ["normalizedVertices", "vertices"]:
+                        if vertices_key in bounding_poly:
+                            vertices_box = ParserHelper._extract_vertices_box(
+                                bounding_poly[vertices_key]
+                            )
+
+                            if vertices_box:
+                                return vertices_box, f"{key}.boundingPoly.{vertices_key}"
+
                 values = ParserHelper._get_four_from_dict(
                     box,
                     [
@@ -821,7 +903,7 @@ class ParserHelper:
                 )
 
                 if values:
-                    return values
+                    return values, key
 
                 values = ParserHelper._get_four_from_dict(
                     box,
@@ -835,7 +917,7 @@ class ParserHelper:
 
                 if values:
                     x, y, w, h = values
-                    return [x, y, x + w, y + h]
+                    return [x, y, x + w, y + h], key
 
                 values = ParserHelper._get_four_from_dict(
                     box,
@@ -854,7 +936,7 @@ class ParserHelper:
                         cy - (h / 2.0),
                         cx + (w / 2.0),
                         cy + (h / 2.0)
-                    ]
+                    ], key
 
             if isinstance(box, (list, tuple)) and len(box) >= 4:
                 try:
@@ -863,20 +945,43 @@ class ParserHelper:
                     continue
 
                 if key == "box_2d":
-                    return [values[1], values[0], values[3], values[2]]
+                    return [values[1], values[0], values[3], values[2]], key
 
-                return values
+                return values, key
 
         return None
+
+    @staticmethod
+    def extract_box(item: Any) -> Optional[List[float]]:
+        """
+        Extracts box as [x_min, y_min, x_max, y_max].
+        """
+        result = ParserHelper.extract_box_with_source(item)
+
+        if result is None:
+            return None
+
+        box, _ = result
+        return box
 
     @staticmethod
     def normalize_box(
         box: Optional[List[float]],
         width: int,
-        height: int
+        height: int,
+        source_key: Optional[str] = None,
+        coordinate_format: str = "auto",
+        model_type: Optional[str] = None
     ) -> Optional[List[float]]:
         """
-        Converts normalized 0-1 coordinates to pixel coordinates.
+        Converts coordinates to pixel coordinates.
+
+        Supported coordinate formats:
+        - auto
+        - normalized-0-1
+        - normalized-0-1000
+        - pixel
+
         Returns [left, top, width, height].
         """
         if box is None or width <= 0 or height <= 0:
@@ -887,13 +992,55 @@ class ParserHelper:
         except Exception:
             return None
 
-        max_value = max(abs(x1), abs(y1), abs(x2), abs(y2))
+        coordinate_format = str(coordinate_format or "auto").lower()
+        model_type = str(model_type or "").lower()
 
-        if max_value <= 1.0:
-            x1 = x1 * width
-            y1 = y1 * height
-            x2 = x2 * width
-            y2 = y2 * height
+        max_value = max(abs(x1), abs(y1), abs(x2), abs(y2))
+        max_dimension = max(float(width), float(height))
+
+        def apply_0_1(values):
+            bx1, by1, bx2, by2 = values
+            return bx1 * width, by1 * height, bx2 * width, by2 * height
+
+        def apply_0_1000(values):
+            bx1, by1, bx2, by2 = values
+            return (
+                (bx1 / 1000.0) * width,
+                (by1 / 1000.0) * height,
+                (bx2 / 1000.0) * width,
+                (by2 / 1000.0) * height
+            )
+
+        scaled = False
+
+        if coordinate_format == "normalized-0-1":
+            x1, y1, x2, y2 = apply_0_1((x1, y1, x2, y2))
+            scaled = True
+
+        elif coordinate_format == "normalized-0-1000":
+            x1, y1, x2, y2 = apply_0_1000((x1, y1, x2, y2))
+            scaled = True
+
+        elif coordinate_format == "pixel":
+            scaled = True
+
+        else:
+            # Auto mode.
+            if max_value <= 1.05:
+                x1, y1, x2, y2 = apply_0_1((x1, y1, x2, y2))
+                scaled = True
+
+            elif source_key == "box_2d" and max_value <= 1000.0:
+                x1, y1, x2, y2 = apply_0_1000((x1, y1, x2, y2))
+                scaled = True
+
+            elif model_type in ["google-gemini", "gemini"] and max_value <= 1000.0:
+                x1, y1, x2, y2 = apply_0_1000((x1, y1, x2, y2))
+                scaled = True
+
+            elif max_value > max_dimension and max_value <= 1000.0:
+                x1, y1, x2, y2 = apply_0_1000((x1, y1, x2, y2))
+                scaled = True
 
         if x2 < x1:
             x1, x2 = x2, x1
@@ -913,7 +1060,7 @@ class ParserHelper:
             return None
 
         return [x1, y1, w, h]
-
+        
     @staticmethod
     def detect_classification_format(parsed_data: Any) -> str:
         """
