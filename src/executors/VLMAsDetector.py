@@ -10,9 +10,15 @@ Class mapping behavior:
     Classes are auto-detected from parsed model output.
     Class IDs are generated deterministically.
 
-Florence-2 special behavior:
-- region-proposal forces class label to "roi".
-- If "roi" is not found in the provided class list, class_id becomes 0.
+Coordinate format behavior:
+- auto:
+    Parser tries to detect normalized 0-1, normalized 0-1000, or pixel coordinates.
+- normalized-0-1:
+    Coordinates are scaled from [0, 1] to image dimensions.
+- normalized-0-1000:
+    Coordinates are scaled from [0, 1000] to image dimensions.
+- pixel:
+    Coordinates are kept as pixel values.
 """
 import os
 import sys
@@ -37,8 +43,9 @@ class VLMAsDetector(Component):
         self.input_image = self.request.get_param("inputImage")
         self.raw_text = self.request.get_param("inputRawText")
 
-        self.model_type = self.request.get_param("ConfigModelType")
-        self.task_type = self.request.get_param("ConfigTaskType")
+        self.model_type = self.request.get_param("ConfigModelType") or "auto"
+        self.task_type = self.request.get_param("ConfigTaskType") or "object-detection"
+        self.coordinate_format = self.request.get_param("ConfigCoordinateFormat") or "auto"
         self.classes_raw = self.request.get_param("ConfigClasses")
 
         self.error_status = False
@@ -83,12 +90,20 @@ class VLMAsDetector(Component):
             if not isinstance(item, dict):
                 continue
 
-            box = ParserHelper.extract_box(item)
+            box_result = ParserHelper.extract_box_with_source(item)
+
+            if box_result is None:
+                continue
+
+            box, box_source = box_result
 
             normalized_box = ParserHelper.normalize_box(
                 box=box,
                 width=width,
-                height=height
+                height=height,
+                source_key=box_source,
+                coordinate_format=self.coordinate_format,
+                model_type=self.model_type
             )
 
             if normalized_box is None:
