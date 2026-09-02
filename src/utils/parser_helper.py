@@ -78,15 +78,14 @@ class ParserHelper:
         Parses raw JSON text or Markdown-wrapped JSON text.
 
         Parse order:
-        1. Return directly if data is already dict/list.
-        2. Try strict JSON parse.
-        3. Try raw JSON decode from first { or [ character.
-        4. Try relaxed JSON repair for LLM outputs.
-        5. Try strict parse and raw decode again on repaired text.
-        6. Try salvage mode for truncated outputs.
-           Salvage extracts complete {...} objects from broken text.
+        1. Strict JSON.
+        2. Raw decode on original text.
+        3. Repair pseudo-JSON, then strict JSON on repaired text.
+        4. Salvage complete objects from truncated text.
+        5. Raw decode on repaired text as a last fallback.
 
-        If multiple Markdown JSON blocks exist, only the first one is used.
+        Salvage runs BEFORE raw_decode on repaired text so that a truncated
+        list returns ALL complete items, not only the first one.
         """
         if raw_text is None:
             return None
@@ -113,37 +112,45 @@ class ParserHelper:
         candidates.append(text)
 
         for candidate in candidates:
+            # 1. Strict JSON.
             parsed = ParserHelper._loads(candidate)
 
             if parsed is not None:
                 return parsed
 
+            # 2. Raw decode on original text.
             parsed = ParserHelper._raw_decode(candidate)
 
             if parsed is not None:
                 return parsed
 
+            # 3. Repair pseudo-JSON.
             repaired = ParserHelper._repair_json_like_text(candidate)
 
+            # 4. Strict JSON on repaired text.
             parsed = ParserHelper._loads(repaired)
 
             if parsed is not None:
                 return parsed
 
-            parsed = ParserHelper._raw_decode(repaired)
+            # 5. Salvage complete objects from truncated text.
+            #    Runs BEFORE raw_decode(repaired) so we recover ALL complete
+            #    items from a truncated list, not just the first one.
+            salvaged = ParserHelper._salvage_objects(repaired)
 
-            if parsed is not None:
-                return parsed
+            if salvaged:
+                return salvaged
 
             salvaged = ParserHelper._salvage_objects(candidate)
 
             if salvaged:
                 return salvaged
 
-            salvaged = ParserHelper._salvage_objects(repaired)
+            # 6. Raw decode on repaired text as a last fallback.
+            parsed = ParserHelper._raw_decode(repaired)
 
-            if salvaged:
-                return salvaged
+            if parsed is not None:
+                return parsed
 
         return None
 
@@ -357,6 +364,52 @@ class ParserHelper:
             return objects
 
         return None
+
+    @staticmethod
+    def _is_box_dict(d: Any) -> bool:
+        """
+        Returns True when the dict itself holds box coordinates directly,
+        i.e. it is a flat single detection.
+
+        Examples:
+            {x_min, y_min, x_max, y_max}
+            {x, y, width, height}
+            {cx, cy, width, height}
+        """
+        if not isinstance(d, dict):
+            return False
+
+        xyxy = [
+            ["x_min", "xmin", "x1", "left", "x"],
+            ["y_min", "ymin", "y1", "top", "y"],
+            ["x_max", "xmax", "x2", "right"],
+            ["y_max", "ymax", "y2", "bottom"]
+        ]
+
+        if ParserHelper._get_four_from_dict(d, xyxy):
+            return True
+
+        xywh = [
+            ["x", "left"],
+            ["y", "top"],
+            ["width", "w"],
+            ["height", "h"]
+        ]
+
+        if ParserHelper._get_four_from_dict(d, xywh):
+            return True
+
+        cxcywh = [
+            ["cx", "center_x"],
+            ["cy", "center_y"],
+            ["width", "w"],
+            ["height", "h"]
+        ]
+
+        if ParserHelper._get_four_from_dict(d, cxcywh):
+            return True
+
+        return False
     
     @staticmethod
     def parse_expected_fields(raw_fields: Any) -> List[str]:
@@ -908,6 +961,10 @@ class ParserHelper:
                             return nested_value
 
             if any(key in parsed_data for key in ParserHelper.BOX_KEYS):
+                return [parsed_data]
+
+            # Flat single detection: coordinates live directly inside the dict.
+            if ParserHelper._is_box_dict(parsed_data):
                 return [parsed_data]
 
             for value in parsed_data.values():
