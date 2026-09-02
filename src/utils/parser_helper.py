@@ -83,6 +83,8 @@ class ParserHelper:
         3. Try raw JSON decode from first { or [ character.
         4. Try relaxed JSON repair for LLM outputs.
         5. Try strict parse and raw decode again on repaired text.
+        6. Try salvage mode for truncated outputs.
+           Salvage extracts complete {...} objects from broken text.
 
         If multiple Markdown JSON blocks exist, only the first one is used.
         """
@@ -133,6 +135,16 @@ class ParserHelper:
             if parsed is not None:
                 return parsed
 
+            salvaged = ParserHelper._salvage_objects(candidate)
+
+            if salvaged:
+                return salvaged
+
+            salvaged = ParserHelper._salvage_objects(repaired)
+
+            if salvaged:
+                return salvaged
+
         return None
 
     @staticmethod
@@ -168,27 +180,6 @@ class ParserHelper:
         - unquoted string values
         - trailing commas
         - simple object/array structures
-
-        Example:
-            {
-              predicted_classes: [
-                {
-                  class: person,
-                  confidence: 0.99
-                }
-              ]
-            }
-
-        becomes:
-
-            {
-              "predicted_classes": [
-                {
-                  "class": "person",
-                  "confidence": 0.99
-                }
-              ]
-            }
         """
         text = text.strip()
 
@@ -247,11 +238,126 @@ class ParserHelper:
         text = re.sub(
             r'(:\s*)([^\s"\'{\[\],:][^,\]\}\n]*?)\s*(?=[,\]\}\n]|$)',
             quote_value,
-            text
+            text,
+            flags=re.MULTILINE
         )
 
         return text
 
+    @staticmethod
+    def _repair_and_load(text: str) -> Any:
+        """
+        Repairs a small JSON-like block and tries to parse it.
+        """
+        repaired = ParserHelper._repair_json_like_text(text)
+
+        parsed = ParserHelper._loads(repaired)
+
+        if parsed is not None:
+            return parsed
+
+        return ParserHelper._raw_decode(repaired)
+
+    @staticmethod
+    def _find_balanced_object_end(text: str, start: int) -> Optional[int]:
+        """
+        Finds the closing brace index of a balanced {...} object.
+
+        Returns:
+        - end index when object is complete
+        - None when object is truncated or unbalanced
+        """
+        if start >= len(text) or text[start] != "{":
+            return None
+
+        depth = 0
+        in_string = False
+        escape = False
+
+        for index in range(start, len(text)):
+            char = text[index]
+
+            if escape:
+                escape = False
+                continue
+
+            if char == "\\":
+                escape = True
+                continue
+
+            if char == '"':
+                in_string = not in_string
+                continue
+
+            if in_string:
+                continue
+
+            if char == "{":
+                depth += 1
+
+            elif char == "}":
+                depth -= 1
+
+                if depth == 0:
+                    return index
+
+        return None
+
+    @staticmethod
+    def _salvage_objects(text: str) -> Optional[List[dict]]:
+        """
+        Salvages complete {...} objects from truncated or broken text.
+
+        This is useful when a VLM output is cut off due to token limits.
+
+        Example broken input:
+            {detections: [{x_min: 0.1, class_name: person, confidence: 0.9}, {x_min: 0.2, y_
+
+        Salvage result:
+            [
+                {
+                    "x_min": 0.1,
+                    "class_name": "person",
+                    "confidence": 0.9
+                }
+            ]
+        """
+        if not text:
+            return None
+
+        objects = []
+        length = len(text)
+        index = 0
+
+        while index < length:
+            if text[index] != "{":
+                index += 1
+                continue
+
+            end = ParserHelper._find_balanced_object_end(
+                text=text,
+                start=index
+            )
+
+            if end is None:
+                index += 1
+                continue
+
+            object_text = text[index:end + 1]
+
+            parsed_object = ParserHelper._repair_and_load(object_text)
+
+            if isinstance(parsed_object, dict) and parsed_object:
+                objects.append(parsed_object)
+                index = end + 1
+            else:
+                index += 1
+
+        if objects:
+            return objects
+
+        return None
+    
     @staticmethod
     def parse_expected_fields(raw_fields: Any) -> List[str]:
         """
