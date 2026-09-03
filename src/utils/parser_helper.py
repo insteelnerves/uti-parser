@@ -73,7 +73,7 @@ class ParserHelper:
         return str(uuid.uuid4())
 
     @staticmethod
-    def parse_json_text(raw_text: Any) -> Optional[Union[dict, list]]:
+    def _parse_json_text_raw(raw_text: Any) -> Optional[Union[dict, list]]:
         """
         Parses raw JSON text or Markdown-wrapped JSON text.
 
@@ -155,6 +155,26 @@ class ParserHelper:
         return None
 
     @staticmethod
+    def parse_json_text(raw_text: Any) -> Optional[Union[dict, list]]:
+        """
+        Parses raw text and then unwraps known payload envelopes.
+
+        Handles:
+        - direct JSON
+        - pseudo-JSON
+        - markdown-wrapped JSON
+        - truncated JSON via salvage
+        - NovaVision output param envelopes
+        - OpenAI/Claude style text envelopes
+        """
+        parsed = ParserHelper._parse_json_text_raw(raw_text)
+
+        if parsed is None:
+            return None
+
+        return ParserHelper.unwrap_payload(parsed)
+    
+    @staticmethod
     def _loads(text: str) -> Any:
         try:
             return json.loads(text)
@@ -178,6 +198,153 @@ class ParserHelper:
         return None
 
     @staticmethod
+    def unwrap_payload(parsed_data: Any, depth: int = 0) -> Any:
+        """
+        Unwraps known payload envelopes and returns the actual model payload.
+
+        Supported envelopes:
+        - NovaVision output param:
+            {
+                "name": "outputText",
+                "value": "...",
+                "type": "string"
+            }
+
+        - OpenAI:
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "..."
+                        }
+                    }
+                ]
+            }
+
+        - Claude:
+            {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "..."
+                    }
+                ]
+            }
+
+        - Generic:
+            {
+                "outputText": "..."
+            }
+            {
+                "output": "..."
+            }
+            {
+                "text": "..."
+            }
+        """
+        if parsed_data is None or depth > 4:
+            return parsed_data
+
+        if isinstance(parsed_data, list):
+            return parsed_data
+
+        if not isinstance(parsed_data, dict):
+            return parsed_data
+
+        # NovaVision output param envelope.
+        if "value" in parsed_data and any(
+            key in parsed_data
+            for key in ["name", "type", "listen", "branch"]
+        ):
+            inner_value = parsed_data["value"]
+
+            if isinstance(inner_value, str):
+                inner_parsed = ParserHelper._parse_json_text_raw(inner_value)
+
+                if inner_parsed is not None:
+                    return ParserHelper.unwrap_payload(
+                        inner_parsed,
+                        depth + 1
+                    )
+
+                return parsed_data
+
+            return ParserHelper.unwrap_payload(
+                inner_value,
+                depth + 1
+            )
+
+        # OpenAI style envelope.
+        choices = parsed_data.get("choices")
+
+        if isinstance(choices, list) and choices:
+            first_choice = choices[0]
+
+            if isinstance(first_choice, dict):
+                message = first_choice.get("message")
+
+                content = None
+
+                if isinstance(message, dict):
+                    content = message.get("content")
+                elif "text" in first_choice:
+                    content = first_choice.get("text")
+
+                if isinstance(content, str):
+                    inner_parsed = ParserHelper._parse_json_text_raw(content)
+
+                    if inner_parsed is not None:
+                        return ParserHelper.unwrap_payload(
+                            inner_parsed,
+                            depth + 1
+                        )
+
+        # Claude style envelope.
+        content = parsed_data.get("content")
+
+        if isinstance(content, list):
+            text_parts = []
+
+            for item in content:
+                if isinstance(item, dict) and isinstance(item.get("text"), str):
+                    text_parts.append(item["text"])
+
+            if text_parts:
+                combined_text = "\n".join(text_parts)
+
+                inner_parsed = ParserHelper._parse_json_text_raw(combined_text)
+
+                if inner_parsed is not None:
+                    return ParserHelper.unwrap_payload(
+                        inner_parsed,
+                        depth + 1
+                    )
+
+        # Generic text wrappers.
+        for key in ["outputText", "output", "text", "result", "data"]:
+            if key not in parsed_data:
+                continue
+
+            value = parsed_data[key]
+
+            if isinstance(value, str):
+                inner_parsed = ParserHelper._parse_json_text_raw(value)
+
+                if inner_parsed is not None and isinstance(inner_parsed, (dict, list)):
+                    return ParserHelper.unwrap_payload(
+                        inner_parsed,
+                        depth + 1
+                    )
+
+            elif isinstance(value, (dict, list)):
+                return ParserHelper.unwrap_payload(
+                    value,
+                    depth + 1
+                )
+
+        return parsed_data
+    
+    @staticmethod
     def _repair_json_like_text(text: str) -> str:
         """
         Repairs common LLM/VLM pseudo-JSON outputs.
@@ -192,6 +359,11 @@ class ParserHelper:
 
         if not text:
             return text
+
+        # Normalize literal escaped sequences coming from serialized payloads.
+        text = text.replace(r"\n", "\n")
+        text = text.replace(r"\r", "\n")
+        text = text.replace(r"\t", "\t")
 
         # Remove trailing commas.
         text = re.sub(
