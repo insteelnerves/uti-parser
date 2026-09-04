@@ -33,14 +33,28 @@ class InputImage(Input):
 
 class InputRawText(Input):
     """
-    Raw VLM/LLM text output. It can be plain JSON or Markdown-wrapped JSON.
+    Raw VLM/LLM output.
+    Can be:
+    - Plain text or JSON string
+    - Markdown-wrapped JSON
+    - Already parsed dict or list (from upstream packages like GCP Vision)
     """
     name: Literal["inputRawText"] = "inputRawText"
-    value: str
-    type: Literal["string"] = "string"
+    value: Union[str, dict, list]
+    type: str = "string"
+
+    @validator("type", pre=True, always=True)
+    def set_type_based_on_value(cls, value, values):
+        value = values.get("value")
+        if isinstance(value, str):
+            return "string"
+        elif isinstance(value, list):
+            return "list"
+        elif isinstance(value, dict):
+            return "object"
 
     class Config:
-        title = "Raw Text"
+        title = "Raw Text / Data"
 
 
 class OutputData(Output):
