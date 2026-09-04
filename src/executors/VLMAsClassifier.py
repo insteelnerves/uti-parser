@@ -22,7 +22,6 @@ from components.Parser.src.utils.response import build_vlm_as_classifier_respons
 from components.Parser.src.models.PackageModel import PackageModel
 from components.Parser.src.utils.parser_helper import ParserHelper
 
-
 class VLMAsClassifier(Component):
     def __init__(self, request, bootstrap):
         super().__init__(request, bootstrap)
@@ -136,7 +135,6 @@ class VLMAsClassifier(Component):
             }
 
         return build_vlm_as_classifier_response(context=self)
-
 
 if "__main__" == __name__:
     Executor(sys.argv[1]).run()
