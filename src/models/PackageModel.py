@@ -310,7 +310,6 @@ class ConfigClassifierModelType(Config):
         OptionModelGoogleGemini,
         OptionModelAnthropicClaude,
         OptionModelSpaceXAI,
-        OptionModelGCPVision,
         OptionModelQwenAI,
         OptionModelKimiAI
     ] = Field(default_factory=OptionModelAuto)
