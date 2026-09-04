@@ -5,7 +5,6 @@ import zlib
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-
 class ParserHelper:
     CLASS_KEYS = [
         "class_name",
@@ -113,30 +112,23 @@ class ParserHelper:
         candidates.append(text)
 
         for candidate in candidates:
-            # 1. Strict JSON.
             parsed = ParserHelper._loads(candidate)
 
             if parsed is not None:
                 return parsed
 
-            # 2. Raw decode on original text.
             parsed = ParserHelper._raw_decode(candidate)
 
             if parsed is not None:
                 return parsed
 
-            # 3. Repair pseudo-JSON.
             repaired = ParserHelper._repair_json_like_text(candidate)
 
-            # 4. Strict JSON on repaired text.
             parsed = ParserHelper._loads(repaired)
 
             if parsed is not None:
                 return parsed
 
-            # 5. Salvage complete objects from truncated text.
-            #    Runs BEFORE raw_decode(repaired) so we recover ALL complete
-            #    items from a truncated list, not just the first one.
             salvaged = ParserHelper._salvage_objects(repaired)
 
             if salvaged:
@@ -147,7 +139,6 @@ class ParserHelper:
             if salvaged:
                 return salvaged
 
-            # 6. Raw decode on repaired text as a last fallback.
             parsed = ParserHelper._raw_decode(repaired)
 
             if parsed is not None:
@@ -252,7 +243,6 @@ class ParserHelper:
         if not isinstance(parsed_data, dict):
             return parsed_data
 
-        # NovaVision output param envelope.
         if "value" in parsed_data and any(
             key in parsed_data
             for key in ["name", "type", "listen", "branch"]
@@ -275,7 +265,6 @@ class ParserHelper:
                 depth + 1
             )
 
-        # OpenAI style envelope.
         choices = parsed_data.get("choices")
 
         if isinstance(choices, list) and choices:
@@ -300,7 +289,6 @@ class ParserHelper:
                             depth + 1
                         )
 
-        # Claude style envelope.
         content = parsed_data.get("content")
 
         if isinstance(content, list):
@@ -321,7 +309,6 @@ class ParserHelper:
                         depth + 1
                     )
 
-        # Generic text wrappers.
         for key in ["outputText", "output", "text", "result", "data"]:
             if key not in parsed_data:
                 continue
@@ -361,26 +348,22 @@ class ParserHelper:
         if not text:
             return text
 
-        # Normalize literal escaped sequences coming from serialized payloads.
         text = text.replace(r"\n", "\n")
         text = text.replace(r"\r", "\n")
         text = text.replace(r"\t", "\t")
 
-        # Remove trailing commas.
         text = re.sub(
             r",\s*([}\]])",
             r"\1",
             text
         )
 
-        # Quote unquoted object keys.
         text = re.sub(
             r'([{,]\s*)([\w$\-\.]+)\s*:',
             r'\1"\2":',
             text
         )
 
-        # Quote unquoted keys at line start.
         text = re.sub(
             r'^\s*([\w$\-\.]+)\s*:',
             r'"\1":',
@@ -414,7 +397,6 @@ class ParserHelper:
 
             return prefix + json.dumps(value, ensure_ascii=False)
 
-        # Quote unquoted string values after colon.
         text = re.sub(
             r'(:\s*)([^\s"\'{\[\],:][^,\]\}\n]*?)\s*(?=[,\]\}\n]|$)',
             quote_value,
@@ -617,7 +599,6 @@ class ParserHelper:
         if not text:
             return []
 
-        # Only parse as JSON when the entire string is a JSON list/object.
         if text.startswith("[") or text.startswith("{"):
             try:
                 parsed = json.loads(text)
@@ -1136,7 +1117,6 @@ class ParserHelper:
             if any(key in parsed_data for key in ParserHelper.BOX_KEYS):
                 return [parsed_data]
 
-            # Flat single detection: coordinates live directly inside the dict.
             if ParserHelper._is_box_dict(parsed_data):
                 return [parsed_data]
 
@@ -1207,7 +1187,6 @@ class ParserHelper:
 
         for key, box in candidates:
             if isinstance(box, dict):
-                # Direct vertices support.
                 for vertices_key in ["normalizedVertices", "vertices"]:
                     if vertices_key in box:
                         vertices_box = ParserHelper._extract_vertices_box(box[vertices_key])
@@ -1215,7 +1194,6 @@ class ParserHelper:
                         if vertices_box:
                             return vertices_box, f"{key}.{vertices_key}"
 
-                # Nested boundingPoly support.
                 if "boundingPoly" in box and isinstance(box["boundingPoly"], dict):
                     bounding_poly = box["boundingPoly"]
 
@@ -1361,7 +1339,6 @@ class ParserHelper:
             scaled = True
 
         else:
-            # Auto mode.
             if max_value <= 1.05:
                 x1, y1, x2, y2 = apply_0_1((x1, y1, x2, y2))
                 scaled = True
