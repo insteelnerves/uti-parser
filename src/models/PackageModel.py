@@ -30,7 +30,6 @@ class InputImage(Input):
     class Config:
         title = "Image"
 
-
 class InputRawText(Input):
     """
     Raw VLM/LLM output.
@@ -56,7 +55,6 @@ class InputRawText(Input):
     class Config:
         title = "Raw Text / Data"
 
-
 class OutputData(Output):
     name: Literal["outputData"] = "outputData"
     value: Union[dict, list]
@@ -64,7 +62,6 @@ class OutputData(Output):
 
     class Config:
         title = "Output Data"
-
 
 class OutputErrorStatus(Output):
     name: Literal["outputErrorStatus"] = "outputErrorStatus"
@@ -74,7 +71,6 @@ class OutputErrorStatus(Output):
     class Config:
         title = "Error Status"
 
-
 class OutputInferenceId(Output):
     name: Literal["outputInferenceId"] = "outputInferenceId"
     value: str
@@ -83,7 +79,6 @@ class OutputInferenceId(Output):
     class Config:
         title = "Inference ID"
 
-
 class OutputDetections(Output):
     name: Literal["outputDetections"] = "outputDetections"
     value: List[Detection]
@@ -91,7 +86,6 @@ class OutputDetections(Output):
 
     class Config:
         title = "Detections"
-
 
 class ConfigExpectedFields(Config):
     """
@@ -179,7 +173,6 @@ class OptionModelAnthropicClaude(Config):
     class Config:
         title = "Anthropic Claude"
 
-
 class OptionModelSpaceXAI(Config):
     name: Literal["optionSpaceXAI"] = "optionSpaceXAI"
     value: Literal["spacexai"] = "spacexai"
@@ -188,7 +181,6 @@ class OptionModelSpaceXAI(Config):
 
     class Config:
         title = "SpaceXAI"
-
 
 class OptionModelFlorence2(Config):
     name: Literal["optionFlorence2"] = "optionFlorence2"
@@ -208,7 +200,6 @@ class OptionCoordinateAuto(Config):
     class Config:
         title = "Auto"
 
-
 class OptionCoordinateNormalized01(Config):
     name: Literal["optionCoordinateNormalized01"] = "optionCoordinateNormalized01"
     value: Literal["normalized-0-1"] = "normalized-0-1"
@@ -218,7 +209,6 @@ class OptionCoordinateNormalized01(Config):
     class Config:
         title = "Normalized 0-1"
 
-
 class OptionCoordinateNormalized01000(Config):
     name: Literal["optionCoordinateNormalized01000"] = "optionCoordinateNormalized01000"
     value: Literal["normalized-0-1000"] = "normalized-0-1000"
@@ -227,7 +217,6 @@ class OptionCoordinateNormalized01000(Config):
 
     class Config:
         title = "Normalized 0-1000"
-
 
 class OptionCoordinatePixel(Config):
     name: Literal["optionCoordinatePixel"] = "optionCoordinatePixel"
@@ -331,7 +320,6 @@ class OptionTaskObjectDetection(Config):
     class Config:
         title = "Object Detection"
 
-
 class OptionTaskOpenVocabularyObjectDetection(Config):
     name: Literal["optionOpenVocabularyObjectDetection"] = "optionOpenVocabularyObjectDetection"
     value: Literal["open-vocabulary-object-detection"] = "open-vocabulary-object-detection"
@@ -350,7 +338,6 @@ class OptionTaskObjectDetectionAndCaption(Config):
     class Config:
         title = "Object Detection and Caption"
 
-
 class OptionTaskPhraseGroundedObjectDetection(Config):
     name: Literal["optionPhraseGroundedObjectDetection"] = "optionPhraseGroundedObjectDetection"
     value: Literal["phrase-grounded-object-detection"] = "phrase-grounded-object-detection"
@@ -359,7 +346,6 @@ class OptionTaskPhraseGroundedObjectDetection(Config):
 
     class Config:
         title = "Phrase Grounded Object Detection"
-
 
 class OptionTaskRegionProposal(Config):
     name: Literal["optionRegionProposal"] = "optionRegionProposal"
@@ -370,7 +356,6 @@ class OptionTaskRegionProposal(Config):
     class Config:
         title = "Region Proposal"
 
-
 class OptionTaskOcrWithTextDetection(Config):
     name: Literal["optionOcrWithTextDetection"] = "optionOcrWithTextDetection"
     value: Literal["ocr-with-text-detection"] = "ocr-with-text-detection"
@@ -379,7 +364,6 @@ class OptionTaskOcrWithTextDetection(Config):
 
     class Config:
         title = "OCR with Text Detection"
-
 
 class ConfigTaskType(Config):
     """
@@ -403,7 +387,6 @@ class ConfigTaskType(Config):
             "shortDescription": "Task Type"
         }
 
-
 class ConfigClasses(Config):
     """
     Optional class list used for mapping class names to class IDs.
@@ -419,27 +402,23 @@ class ConfigClasses(Config):
     value: str = Field(default="")
     type: Literal["string"] = "string"
     field: Literal["textInput"] = "textInput"
-    placeHolder: Literal["Optional: person,car,dog"] = "Optional: person,car,dog"
+    placeHolder: Literal["person,car,dog"] = "person,car,dog"
 
     class Config:
         title = "Classes (Optional)"
         json_schema_extra = {
-            "shortDescription": "Known Classes (Optional)"
+            "shortDescription": "Known Classes"
         }
-
 
 class JsonParserInputs(Inputs):
     inputRawText: InputRawText
 
-
 class JsonParserConfigs(Configs):
     expectedFields: ConfigExpectedFields
-
 
 class JsonParserOutputs(Outputs):
     outputData: OutputData
     outputErrorStatus: OutputErrorStatus
-
 
 class JsonParserRequest(Request):
     inputs: Optional[JsonParserInputs]
@@ -450,10 +429,8 @@ class JsonParserRequest(Request):
             "target": "configs"
         }
 
-
 class JsonParserResponse(Response):
     outputs: JsonParserOutputs
-
 
 class JsonParser(Config):
     """
@@ -472,11 +449,9 @@ class JsonParser(Config):
             }
         }
 
-
 class VLMAsDetectorInputs(Inputs):
     inputImage: InputImage
     inputRawText: InputRawText
-
 
 class VLMAsDetectorConfigs(Configs):
     modelType: ConfigModelType = Field(default_factory=ConfigModelType)
@@ -484,12 +459,10 @@ class VLMAsDetectorConfigs(Configs):
     coordinateFormat: ConfigCoordinateFormat = Field(default_factory=ConfigCoordinateFormat)
     classes: ConfigClasses = Field(default_factory=ConfigClasses)
 
-
 class VLMAsDetectorOutputs(Outputs):
     outputDetections: OutputDetections
     outputErrorStatus: OutputErrorStatus
     outputInferenceId: OutputInferenceId
-
 
 class VLMAsDetectorRequest(Request):
     inputs: Optional[VLMAsDetectorInputs]
@@ -500,10 +473,8 @@ class VLMAsDetectorRequest(Request):
             "target": "configs"
         }
 
-
 class VLMAsDetectorResponse(Response):
     outputs: VLMAsDetectorOutputs
-
 
 class VLMAsDetector(Config):
     """
@@ -523,22 +494,18 @@ class VLMAsDetector(Config):
             }
         }
 
-
 class VLMAsClassifierInputs(Inputs):
     inputImage: InputImage
     inputRawText: InputRawText
-
 
 class VLMAsClassifierConfigs(Configs):
     modelType: ConfigClassifierModelType = Field(default_factory=ConfigClassifierModelType)
     classes: ConfigClasses = Field(default_factory=ConfigClasses)
 
-
 class VLMAsClassifierOutputs(Outputs):
     outputData: OutputData
     outputErrorStatus: OutputErrorStatus
     outputInferenceId: OutputInferenceId
-
 
 class VLMAsClassifierRequest(Request):
     inputs: Optional[VLMAsClassifierInputs]
@@ -549,10 +516,8 @@ class VLMAsClassifierRequest(Request):
             "target": "configs"
         }
 
-
 class VLMAsClassifierResponse(Response):
     outputs: VLMAsClassifierOutputs
-
 
 class VLMAsClassifier(Config):
     """
@@ -572,7 +537,6 @@ class VLMAsClassifier(Config):
             }
         }
 
-
 class ConfigExecutor(Config):
     """
     Select which parsing operation to perform.
@@ -588,10 +552,8 @@ class ConfigExecutor(Config):
             "shortDescription": "Select Task"
         }
 
-
 class PackageConfigs(Configs):
     executor: ConfigExecutor
-
 
 class PackageModel(Package):
     configs: PackageConfigs
