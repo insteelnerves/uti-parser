@@ -33,7 +33,6 @@ from components.Parser.src.utils.response import build_vlm_as_detector_response
 from components.Parser.src.models.PackageModel import PackageModel
 from components.Parser.src.utils.parser_helper import ParserHelper
 
-
 class VLMAsDetector(Component):
     def __init__(self, request, bootstrap):
         super().__init__(request, bootstrap)
