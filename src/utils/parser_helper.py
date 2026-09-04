@@ -11,6 +11,7 @@ class ParserHelper:
         "class_name",
         "className",
         "class",
+        "classLabel",
         "label",
         "object",
         "object_name",
