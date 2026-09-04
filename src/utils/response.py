@@ -18,7 +18,6 @@ from components.Parser.src.models.PackageModel import (
     VLMAsClassifierResponse
 )
 
-
 def build_json_parser_response(context):
     output_data = OutputData(value=context.output_data)
     output_error_status = OutputErrorStatus(value=context.error_status)
@@ -39,7 +38,6 @@ def build_json_parser_response(context):
     )
 
     return package.build_model(context)
-
 
 def build_vlm_as_detector_response(context):
     output_detections = OutputDetections(value=context.output_detections)
@@ -63,7 +61,6 @@ def build_vlm_as_detector_response(context):
     )
 
     return package.build_model(context)
-
 
 def build_vlm_as_classifier_response(context):
     output_data = OutputData(value=context.output_data)
